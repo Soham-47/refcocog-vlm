@@ -40,9 +40,13 @@ def raw_info(example: dict) -> dict:
     return json.loads(value) if isinstance(value, str) else value
 
 
+def source_file_name(example: dict) -> str:
+    return Path(raw_info(example).get("file_name", example["file_name"])).name
+
+
 def image_urls(example: dict) -> list[str]:
     info = raw_info(example)
-    file_name = Path(example["file_name"]).name
+    file_name = source_file_name(example)
     if "val2014" in file_name:
         coco_split = "val2014"
     else:
@@ -103,42 +107,44 @@ def main() -> None:
 
     # ponytail: sequential downloads keep the first version simple; add bounded
     # concurrency only when full-split download time becomes the bottleneck.
-    seen: set[str] = set()
+    downloaded_sources: set[str] = set()
     manifest_rows: list[dict] = []
     failures = 0
 
     with args.manifest.open("w", encoding="utf-8") as manifest_file:
         for index, example in enumerate(dataset):
-            file_name = Path(example["file_name"]).name
-            if file_name in seen:
-                continue
-            seen.add(file_name)
-
-            path = destination(args.output_dir, file_name)
+            example_file_name = Path(example["file_name"]).name
+            source_name = source_file_name(example)
+            path = destination(args.output_dir, source_name)
             try:
                 last_error = None
                 url = None
-                for candidate_url in image_urls(example):
-                    try:
-                        download_image(
-                            candidate_url,
-                            path,
-                            args.timeout,
-                            verify=not args.insecure,
-                        )
-                        url = candidate_url
-                        break
-                    except Exception as exc:
-                        last_error = exc
-                if url is None:
-                    raise RuntimeError(last_error) from last_error
+                if source_name not in downloaded_sources:
+                    for candidate_url in image_urls(example):
+                        try:
+                            download_image(
+                                candidate_url,
+                                path,
+                                args.timeout,
+                                verify=not args.insecure,
+                            )
+                            url = candidate_url
+                            downloaded_sources.add(source_name)
+                            break
+                        except Exception as exc:
+                            last_error = exc
+                    if url is None:
+                        raise RuntimeError(last_error) from last_error
+                else:
+                    url = image_urls(example)[0]
             except Exception as exc:  # keep usable examples when one URL fails
                 failures += 1
-                print(f"[{index}] skipped {file_name}: {exc}")
+                print(f"[{index}] skipped {example_file_name}: {exc}")
                 continue
 
             row = {
-                "file_name": file_name,
+                "file_name": example_file_name,
+                "source_file_name": source_name,
                 "image_path": str(path),
                 "image_url": url,
                 "bbox": example["bbox"],
@@ -147,7 +153,7 @@ def main() -> None:
             }
             manifest_file.write(json.dumps(row) + "\n")
             manifest_file.flush()
-            print(f"[{len(manifest_rows) + 1}] cached {file_name}")
+            print(f"[{len(manifest_rows) + 1}] cached {example_file_name}")
             manifest_rows.append(row)
 
     print(f"Cached {len(manifest_rows)} unique images")
