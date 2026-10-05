@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Local data, caches, checkpoints, and experiment results
+data/
+cache/
+outputs/*
+checkpoints/
+*.pt
+*.pth
+*.safetensors
+
+# Secrets and local configuration
+.env
+*.token
+*.key
