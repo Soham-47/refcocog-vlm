@@ -26,7 +26,7 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=Path("/scratch/ambpdc/soham/vlm/data/refcocog_manifest.jsonl"),
     )
-    parser.add_argument("--timeout", type=float, default=30.0)
+    parser.add_argument("--timeout", type=float, default=10.0)
     parser.add_argument(
         "--insecure",
         action="store_true",
@@ -42,7 +42,19 @@ def raw_info(example: dict) -> dict:
 
 def image_urls(example: dict) -> list[str]:
     info = raw_info(example)
-    urls = [info.get("flickr_url"), info.get("coco_url")]
+    file_name = Path(example["file_name"]).name
+    if "val2014" in file_name:
+        coco_split = "val2014"
+    else:
+        coco_split = "train2014"
+
+    urls = [
+        info.get("flickr_url"),
+        info.get("coco_url"),
+        f"https://images.cocodataset.org/{coco_split}/{file_name}",
+    ]
+    # The dataset may contain the obsolete http://mscoco.org/images/... URL.
+    urls = [url for url in urls if url and "mscoco.org" not in url]
     urls = [url for url in urls if url]
     if not urls:
         raise KeyError(f"No image URL in raw_image_info: {sorted(info)}")
