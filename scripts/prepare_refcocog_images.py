@@ -40,12 +40,13 @@ def raw_info(example: dict) -> dict:
     return json.loads(value) if isinstance(value, str) else value
 
 
-def image_url(example: dict) -> str:
+def image_urls(example: dict) -> list[str]:
     info = raw_info(example)
-    url = info.get("flickr_url") or info.get("coco_url")
-    if not url:
+    urls = [info.get("flickr_url"), info.get("coco_url")]
+    urls = [url for url in urls if url]
+    if not urls:
         raise KeyError(f"No image URL in raw_image_info: {sorted(info)}")
-    return url
+    return urls
 
 
 def destination(output_dir: Path, file_name: str) -> Path:
@@ -103,8 +104,22 @@ def main() -> None:
 
             path = destination(args.output_dir, file_name)
             try:
-                url = image_url(example)
-                download_image(url, path, args.timeout, verify=not args.insecure)
+                last_error = None
+                url = None
+                for candidate_url in image_urls(example):
+                    try:
+                        download_image(
+                            candidate_url,
+                            path,
+                            args.timeout,
+                            verify=not args.insecure,
+                        )
+                        url = candidate_url
+                        break
+                    except Exception as exc:
+                        last_error = exc
+                if url is None:
+                    raise RuntimeError(last_error) from last_error
             except Exception as exc:  # keep usable examples when one URL fails
                 failures += 1
                 print(f"[{index}] skipped {file_name}: {exc}")
