@@ -10,7 +10,7 @@ from pathlib import Path
 
 NUMBER = r"-?\d+(?:\.\d+)?"
 BOX_PATTERNS = (
-    re.compile(rf"\[\[\s*({NUMBER})\s*,\s*({NUMBER})\s*,\s*({NUMBER})\s*,\s*({NUMBER})\s*\]\]"),
+    re.compile(rf"\[\s*\[?\s*({NUMBER})\s*,\s*({NUMBER})\s*,\s*({NUMBER})\s*,\s*({NUMBER})\s*\]?\s*\]"),
     re.compile(rf"bbox_2d\s*[\"']?\s*:\s*\[\s*({NUMBER})\s*,\s*({NUMBER})\s*,\s*({NUMBER})\s*,\s*({NUMBER})\s*\]", re.I),
     re.compile(rf"<\|box_start\|>\s*\(\s*({NUMBER})\s*,\s*({NUMBER})\s*\)\s*,\s*\(\s*({NUMBER})\s*,\s*({NUMBER})\s*\)"),
 )
@@ -46,6 +46,7 @@ def phrase_from(row: dict) -> str:
 
 def run_self_check() -> None:
     assert parse_box("[[10, 20, 500, 600]]") == [10.0, 20.0, 500.0, 600.0]
+    assert parse_box("[447, 64, 668, 338]") == [447.0, 64.0, 668.0, 338.0]
     assert parse_box("<|box_start|>(10,20),(500,600)<|box_end|>") == [10.0, 20.0, 500.0, 600.0]
     assert parse_box("no box") is None
     assert iou([0, 0, 10, 10], [0, 0, 10, 10]) == 1.0
