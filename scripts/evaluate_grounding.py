@@ -4,36 +4,11 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
+import sys
 from pathlib import Path
 
-
-NUMBER = r"-?\d+(?:\.\d+)?"
-BOX_PATTERNS = (
-    re.compile(rf"\[\s*\[?\s*({NUMBER})\s*,\s*({NUMBER})\s*,\s*({NUMBER})\s*,\s*({NUMBER})\s*\]?\s*\]"),
-    re.compile(rf"bbox_2d\s*[\"']?\s*:\s*\[\s*({NUMBER})\s*,\s*({NUMBER})\s*,\s*({NUMBER})\s*,\s*({NUMBER})\s*\]", re.I),
-    re.compile(rf"<\|box_start\|>\s*\(\s*({NUMBER})\s*,\s*({NUMBER})\s*\)\s*,\s*\(\s*({NUMBER})\s*,\s*({NUMBER})\s*\)"),
-)
-
-
-def parse_box(text: str) -> list[float] | None:
-    for pattern in BOX_PATTERNS:
-        match = pattern.search(text)
-        if match:
-            box = [float(value) for value in match.groups()]
-            if all(0 <= value <= 1000 for value in box) and box[0] < box[2] and box[1] < box[3]:
-                return box
-    return None
-
-
-def iou(a: list[float], b: list[float]) -> float:
-    x1, y1 = max(a[0], b[0]), max(a[1], b[1])
-    x2, y2 = min(a[2], b[2]), min(a[3], b[3])
-    intersection = max(0.0, x2 - x1) * max(0.0, y2 - y1)
-    area_a = max(0.0, a[2] - a[0]) * max(0.0, a[3] - a[1])
-    area_b = max(0.0, b[2] - b[0]) * max(0.0, b[3] - b[1])
-    union = area_a + area_b - intersection
-    return intersection / union if union > 0 else 0.0
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+from refcocog.grounding import iou, normalized_to_pixels, parse_box, source_bbox_to_pixels
 
 
 def phrase_from(row: dict) -> str:
@@ -58,6 +33,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", type=Path)
     parser.add_argument("--model", default="Qwen/Qwen3-VL-8B-Instruct")
+    parser.add_argument("--adapter", type=Path, help="Optional ms-swift/PEFT LoRA checkpoint to evaluate.")
     parser.add_argument("--predictions", type=Path, default=Path("outputs/baseline_val50_predictions.jsonl"))
     parser.add_argument("--summary", type=Path, default=Path("outputs/baseline_val50_metrics.json"))
     parser.add_argument("--self-check", action="store_true", help="Check box parsing and IoU without loading a model.")
@@ -79,6 +55,9 @@ def main() -> None:
     model = AutoModelForImageTextToText.from_pretrained(
         args.model, dtype="auto", device_map="auto"
     )
+    if args.adapter:
+        from peft import PeftModel
+        model = PeftModel.from_pretrained(model, args.adapter)
     processor = AutoProcessor.from_pretrained(args.model)
     args.predictions.parent.mkdir(parents=True, exist_ok=True)
     args.summary.parent.mkdir(parents=True, exist_ok=True)
@@ -91,6 +70,7 @@ def main() -> None:
             raw = ""
             pred_1000 = pred_pixels = None
             error = None
+            width = height = None
             try:
                 with Image.open(row["image_path"]) as image_file:
                     image = image_file.convert("RGB")
@@ -116,14 +96,16 @@ def main() -> None:
                 )[0].strip()
                 pred_1000 = parse_box(raw)
                 if pred_1000 is not None:
-                    pred_pixels = [
-                        pred_1000[0] * width / 1000, pred_1000[1] * height / 1000,
-                        pred_1000[2] * width / 1000, pred_1000[3] * height / 1000,
-                    ]
+                    pred_pixels = normalized_to_pixels(pred_1000, width, height)
             except Exception as exc:
                 error = f"{type(exc).__name__}: {exc}"
 
             gt = [float(value) for value in row["bbox"]]
+            if width is not None and height is not None:
+                gt = source_bbox_to_pixels(
+                    gt, int(row.get("source_width", width)), int(row.get("source_height", height)),
+                    width, height,
+                )
             score = iou(pred_pixels, gt) if pred_pixels is not None else 0.0
             result = {
                 "index": index, "ref_id": row.get("ref_id"), "phrase": phrase,
