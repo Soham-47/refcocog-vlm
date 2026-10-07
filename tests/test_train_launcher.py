@@ -15,6 +15,12 @@ class TrainLauncherTests(unittest.TestCase):
         self.assertLess(launcher.index(modelscope_cache), first_swift_command)
         self.assertLess(launcher.index(huggingface_cache), first_swift_command)
 
+    def test_uses_chat_format_dataset_for_grpo_and_sft_dataset_for_sft(self):
+        launcher = (Path(__file__).parents[1] / "slurm" / "train_ablation.sh").read_text()
+
+        self.assertIn('TRAIN="$ROOT/data/refcocog_train500_grpo_v2.jsonl"', launcher)
+        self.assertIn('--dataset "$ROOT/data/refcocog_train500_sft_v2.jsonl"', launcher)
+
 
 if __name__ == "__main__":
     unittest.main()
