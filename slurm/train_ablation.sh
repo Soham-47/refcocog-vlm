@@ -21,6 +21,7 @@ MODEL=Qwen/Qwen3-VL-8B-Instruct
 EXPERIMENT=${1:?Usage: sbatch slurm/train_ablation.sh sft\|grpo_base\|grpo_after_sft}
 
 export HF_HOME="$ROOT/cache/huggingface"
+export MODELSCOPE_CACHE="$ROOT/cache/modelscope"
 export HF_HUB_OFFLINE=1
 export HF_DATASETS_OFFLINE=1
 export PYTHONPATH="$REPO/src${PYTHONPATH:+:$PYTHONPATH}"
