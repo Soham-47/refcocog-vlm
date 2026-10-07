@@ -148,6 +148,8 @@ def main() -> None:
                 "image_path": str(path),
                 "image_url": url,
                 "bbox": example["bbox"],
+                "source_width": raw_info(example)["width"],
+                "source_height": raw_info(example)["height"],
                 "sentences": example["sentences"],
                 "ref_id": example["ref_id"],
             }
