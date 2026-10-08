@@ -16,6 +16,7 @@ REPO="$ROOT/repo"
 PYTHON=/scratch/ambpdc/conda/envs/ms_swift/bin/python
 OUTPUT="$ROOT/outputs/ablation"
 TRAIN="$ROOT/data/refcocog_train500_grpo_v2.jsonl"
+GRPO_REQUIREMENTS="$REPO/slurm/grpo_requirements.txt"
 PLUGIN="$REPO/scripts/refcocog_iou_reward.py"
 MODEL=Qwen/Qwen3-VL-8B-Instruct
 EXPERIMENT=${1:?Usage: sbatch slurm/train_ablation.sh sft\|grpo_base\|grpo_after_sft}
@@ -36,6 +37,10 @@ common=(--model "$MODEL" --train_type lora --torch_dtype bfloat16
         --eval_strategy no --split_dataset_ratio 0 --logging_steps 5
         --dataloader_num_workers 2)
 
+grpo_preflight() {
+  "$PYTHON" "$REPO/scripts/check_grpo_dependencies.py" "$GRPO_REQUIREMENTS"
+}
+
 case "$EXPERIMENT" in
   sft)
     "$PYTHON" -m swift.cli.sft \
@@ -49,6 +54,7 @@ case "$EXPERIMENT" in
       --dataloader_num_workers 2 --output_dir "$OUTPUT/sft"
     ;;
   grpo_base)
+    grpo_preflight
     "$PYTHON" -m swift.cli.rlhf "${common[@]}" \
       --rlhf_type grpo --external_plugins "$PLUGIN" --reward_funcs refcocog_iou \
       --reward_weights 1.0 --num_generations 4 --beta 0.04 \
@@ -56,6 +62,7 @@ case "$EXPERIMENT" in
       --output_dir "$OUTPUT/grpo_base"
     ;;
   grpo_after_sft)
+    grpo_preflight
     SFT_ADAPTER=$(find "$OUTPUT/sft" -type f -name adapter_config.json -print -quit)
     if [[ -z "$SFT_ADAPTER" ]]; then
       echo "No SFT adapter found under $OUTPUT/sft" >&2

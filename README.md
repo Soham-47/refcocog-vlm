@@ -29,3 +29,14 @@ Datasets, model caches, checkpoints, and outputs stay on the HPC filesystem and 
 
    The script reports mean IoU, Acc@0.5, Acc@0.75, and parse failures. It counts an unparseable prediction as IoU 0.
 4. Add and evaluate the RL/GRPO training loop.
+
+## GRPO environment preflight
+
+The GRPO launcher checks the pinned GRPO-only dependencies before starting either
+GRPO experiment. Install them once in the shared `ms_swift` environment; the
+launcher only checks them on later jobs and does not reinstall packages:
+
+```bash
+/scratch/ambpdc/conda/envs/ms_swift/bin/python -m pip install \
+  -r /scratch/ambpdc/soham/vlm/repo/slurm/grpo_requirements.txt
+```
