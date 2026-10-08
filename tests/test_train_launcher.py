@@ -26,10 +26,14 @@ class TrainLauncherTests(unittest.TestCase):
         self.assertIn('TRAIN="$ROOT/data/refcocog_train500_grpo_v2.jsonl"', launcher)
         self.assertIn('--dataset "$ROOT/data/refcocog_train500_sft_v2.jsonl"', launcher)
 
-    def test_grpo_preflight_runs_before_each_grpo_launch(self):
+    def test_grpo_preflight_uses_defined_manifest_before_each_grpo_launch(self):
         launcher = self.launcher.read_text()
 
-        self.assertIn('GRPO_REQUIREMENTS="$REPO/slurm/grpo_requirements.txt"', launcher)
+        requirements_definition = 'GRPO_REQUIREMENTS="$REPO/slurm/grpo_requirements.txt"'
+        preflight_command = '"$PYTHON" "$REPO/scripts/check_grpo_dependencies.py" "$GRPO_REQUIREMENTS"'
+        self.assertIn(requirements_definition, launcher)
+        self.assertIn(preflight_command, launcher)
+        self.assertLess(launcher.index(requirements_definition), launcher.index("grpo_preflight()"))
         for experiment in ("grpo_base", "grpo_after_sft"):
             branch = launcher.split(f"  {experiment})", 1)[1].split("\n    ;;", 1)[0]
             self.assertLess(branch.index("grpo_preflight"), branch.index("swift.cli.rlhf"))
