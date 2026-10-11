@@ -47,7 +47,6 @@ def box_center(box: list[float] | None) -> tuple[float, float] | None:
 def metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
     count = len(rows)
     ious = [float(row.get("iou", 0.0)) for row in rows]
-    parsed = [bool(row.get("parse_ok")) for row in rows]
     area_ratios = []
     center_distances = []
     for row in rows:
@@ -65,7 +64,7 @@ def metrics(rows: list[dict[str, Any]]) -> dict[str, Any]:
                 )
     return {
         "num_examples": count,
-        "parse_failures": sum(not value for value in parsed),
+        "parse_failures": sum(not row.get("parse_ok") for row in rows),
         "mean_iou": sum(ious) / count if count else 0.0,
         "accuracy_iou_0.5": sum(value >= 0.5 for value in ious) / count if count else 0.0,
         "accuracy_iou_0.75": sum(value >= 0.75 for value in ious) / count if count else 0.0,
@@ -120,14 +119,16 @@ def model_and_split(label: str) -> tuple[str, str]:
 
 
 def build_report(predictions: list[tuple[str, Path]], base_model: str) -> dict[str, Any]:
+    prediction_paths = dict(predictions)
     loaded = {label: load_predictions(path) for label, path in predictions}
     report = {"runs": {}, "comparisons": {}}
     for label, rows in loaded.items():
-        report["runs"][label] = {"prediction_file": str(dict(predictions)[label]), **metrics(rows)}
-    base_by_split = {
-        split: label for label in loaded
-        for model, split in [model_and_split(label)] if model == base_model
-    }
+        report["runs"][label] = {"prediction_file": str(prediction_paths[label]), **metrics(rows)}
+    base_by_split = {}
+    for label in loaded:
+        model, split = model_and_split(label)
+        if model == base_model:
+            base_by_split[split] = label
     for label, rows in loaded.items():
         model, split = model_and_split(label)
         if model == base_model:

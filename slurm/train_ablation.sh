@@ -36,6 +36,9 @@ common=(--model "$MODEL" --train_type lora --torch_dtype bfloat16
         --max_length 2048 --save_strategy epoch --save_total_limit 1
         --eval_strategy no --split_dataset_ratio 0 --logging_steps 5
         --dataloader_num_workers 2)
+grpo=(--rlhf_type grpo --external_plugins "$PLUGIN" --reward_funcs refcocog_iou
+      --reward_weights 1.0 --num_generations 4 --beta 0.04
+      --max_completion_length 64 --log_completions true)
 
 grpo_preflight() {
   "$PYTHON" "$REPO/scripts/check_grpo_dependencies.py" "$GRPO_REQUIREMENTS"
@@ -56,9 +59,7 @@ case "$EXPERIMENT" in
   grpo_base)
     grpo_preflight
     "$PYTHON" -m swift.cli.rlhf "${common[@]}" \
-      --rlhf_type grpo --external_plugins "$PLUGIN" --reward_funcs refcocog_iou \
-      --reward_weights 1.0 --num_generations 4 --beta 0.04 \
-      --max_completion_length 64 --log_completions true \
+      "${grpo[@]}" \
       --output_dir "$OUTPUT/grpo_base"
     ;;
   grpo_after_sft)
@@ -70,9 +71,7 @@ case "$EXPERIMENT" in
     fi
     SFT_ADAPTER=$(dirname "$SFT_ADAPTER")
     "$PYTHON" -m swift.cli.rlhf "${common[@]}" \
-      --rlhf_type grpo --external_plugins "$PLUGIN" --reward_funcs refcocog_iou \
-      --reward_weights 1.0 --num_generations 4 --beta 0.04 \
-      --max_completion_length 64 --log_completions true \
+      "${grpo[@]}" \
       --adapters "$SFT_ADAPTER" --ref_adapters "$SFT_ADAPTER" \
       --output_dir "$OUTPUT/grpo_after_sft"
     ;;
