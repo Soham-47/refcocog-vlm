@@ -2,13 +2,33 @@
 
 \usepackage[margin=1in]{geometry}
 
-\title{Paired diagnostic report for RefCOCOg VLM grounding}
-\author{}
-\date{}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.5em}
+
+\makeatletter
+\renewcommand{\section}{\@startsection{section}{1}{\z@}%
+  {-3.0ex \@plus -1ex \@minus -.2ex}%
+  {1.5ex \@plus .2ex}%
+  {\normalfont\normalsize\bfseries}}
+\renewcommand{\subsection}{\@startsection{subsection}{2}{\z@}%
+  {-2.5ex \@plus -1ex \@minus -.2ex}%
+  {1ex \@plus .2ex}%
+  {\normalfont\normalsize\bfseries}}
+\long\def\@makecaption#1#2{%
+  \vskip\abovecaptionskip
+  \noindent #1: #2\par
+  \vskip\belowcaptionskip}
+\makeatother
+
+\renewenvironment{abstract}
+  {\par\noindent\textbf{Abstract}\par\normalfont\normalsize}
+  {\par\medskip}
 
 \begin{document}
 
-\maketitle
+\noindent\textbf{Paired diagnostic report for RefCOCOg VLM grounding}\par
+\vspace{0.75em}
+\raggedright
 
 \begin{abstract}
 This report describes a paired diagnostic of four Qwen3-VL-8B-Instruct systems
@@ -107,7 +127,7 @@ improved, degraded, and unchanged counts classify those per-row deltas.
 Table~\ref{tab:validation} reports the 200-example validation diagnostic.
 
 \begin{table}[h]
-\centering
+\raggedright
 \caption{Validation metrics on 200 paired examples.}
 \label{tab:validation}
 \begin{tabular}{lrrrr}
@@ -125,7 +145,7 @@ SFT then GRPO & 0.8158485 & 0.860 & 0.795 & 0 \\
 Relative to the base validation run, the paired mean-IoU deltas were:
 
 \begin{table}[h]
-\centering
+\raggedright
 \caption{Paired validation mean-IoU changes against the base run.}
 \label{tab:validation-paired}
 \begin{tabular}{lrrrrr}
@@ -152,7 +172,7 @@ Table~\ref{tab:training} reports the same systems on the 500-example training
 diagnostic.
 
 \begin{table}[h]
-\centering
+\raggedright
 \caption{Training-split metrics on 500 paired examples.}
 \label{tab:training}
 \begin{tabular}{lrrrr}
@@ -170,7 +190,7 @@ SFT then GRPO & 0.8291169 & 0.890 & 0.794 & 0 \\
 The paired training-split changes were:
 
 \begin{table}[h]
-\centering
+\raggedright
 \caption{Paired training-split mean-IoU changes against the base run.}
 \label{tab:training-paired}
 \begin{tabular}{lrrrr}
@@ -193,7 +213,7 @@ from base than SFT, with a paired mean-IoU delta of +0.00427569.
 The recorded training runs completed the following steps:
 
 \begin{table}[h]
-\centering
+\raggedright
 \caption{Training run records. These values are not comparable across methods.}
 \label{tab:training-runs}
 \begin{tabular}{lrrll}
@@ -295,16 +315,17 @@ The commands assume the HPC layout used by the Slurm launcher.
 The paired diagnostic command is:
 
 \begin{verbatim}
+D=/scratch/ambpdc/soham/vlm/outputs/diagnostic
 python3 scripts/analyze_grounding_diagnostic.py \
-  --prediction base/train=/scratch/ambpdc/soham/vlm/outputs/diagnostic/base_train.jsonl \
-  --prediction sft/train=/scratch/ambpdc/soham/vlm/outputs/diagnostic/sft_train.jsonl \
-  --prediction grpo/train=/scratch/ambpdc/soham/vlm/outputs/diagnostic/grpo_train_h100.jsonl \
-  --prediction sft_grpo/train=/scratch/ambpdc/soham/vlm/outputs/diagnostic/sft_grpo_train_h100.jsonl \
-  --prediction base/val=/scratch/ambpdc/soham/vlm/outputs/diagnostic/base_val.jsonl \
-  --prediction sft/val=/scratch/ambpdc/soham/vlm/outputs/diagnostic/sft_val.jsonl \
-  --prediction grpo/val=/scratch/ambpdc/soham/vlm/outputs/diagnostic/grpo_val.jsonl \
-  --prediction sft_grpo/val=/scratch/ambpdc/soham/vlm/outputs/diagnostic/sft_grpo_val.jsonl \
-  --output /scratch/ambpdc/soham/vlm/outputs/diagnostic/full_report.json
+  --prediction base/train=$D/base_train.jsonl \
+  --prediction sft/train=$D/sft_train.jsonl \
+  --prediction grpo/train=$D/grpo_train_h100.jsonl \
+  --prediction sft_grpo/train=$D/sft_grpo_train_h100.jsonl \
+  --prediction base/val=$D/base_val.jsonl \
+  --prediction sft/val=$D/sft_val.jsonl \
+  --prediction grpo/val=$D/grpo_val.jsonl \
+  --prediction sft_grpo/val=$D/sft_grpo_val.jsonl \
+  --output $D/full_report.json
 \end{verbatim}
 
 Model weights, images, manifests, adapters, logs, and prediction files are
@@ -313,8 +334,6 @@ external artifacts. Their absence from Git is intentional.
 \section{Conclusion}
 
 On this paired diagnostic, SFT produced the largest validation improvement over
-the base model. Direct GRPO produced a smaller improvement. SFT then GRPO was
-very close to SFT on validation and had the strongest training-split score.
-These findings describe the measured 500 and 200 example diagnostics only.
+the base model. SFT then GRPO was close to SFT, while direct GRPO changed little.
 
 \end{document}
